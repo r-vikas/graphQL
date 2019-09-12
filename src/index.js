@@ -1,4 +1,5 @@
 import { GraphQLServer } from "graphql-yoga";
+import uuidv4 from "uuid/v4";
 
 const users = [
   {
@@ -78,6 +79,12 @@ const typeDefs = `
         comments: [Comment!]!
       }
 
+     type Mutation{
+        createUser(name: String, email: String!,age: Int): User!
+        createPost(title: String!, body: String!, published: Boolean!, author:ID!): Post!
+        createComment(text: String,author: ID!,post: ID!): Comment!
+      }
+
     type User {
         id: ID!
         name: String!
@@ -86,7 +93,6 @@ const typeDefs = `
         posts: [Post!]!
         comments: [Comment!]!
     }
-
     
     type Comment {
       id: ID!
@@ -142,16 +148,69 @@ const resolvers = {
       return comments;
     }
   },
+  Mutation: {
+    createUser(parent, args, ctx, info) {
+      const emailTaken = users.some(user => {
+        return user.email === args.email;
+      });
+
+      if (emailTaken) {
+        throw new Error("Email Id exits");
+      }
+
+      const user = {
+        id: uuidv4(),
+        ...args
+      };
+
+      users.push(user);
+
+      return user;
+    },
+    createPost(parent, args, ctx, info) {
+      const userExits = users.some(user => user.id === args.author);
+
+      if (!userExits) {
+        throw new Error("Author does not exist");
+      }
+
+      const post = {
+        id: uuidv4(),
+        ...args
+      };
+
+      posts.push(post);
+      return post;
+    },
+    createComment(parent, args, ctx, info) {
+      const postExists = posts.some(
+        post => post.id === args.post && post.published
+      );
+      const userExits = users.some(user => user.id === args.author);
+
+      if (!postExists || !userExits) {
+        throw new Error("No author or Post for the ID's");
+      }
+
+      const comment = {
+        id: uuidv4(),
+        ...args
+      };
+
+      comments.push(comment);
+      return comment;
+    }
+  },
   Post: {
     author(parent, args, ctx, info) {
       return users.find(user => {
         return user.id === parent.author;
       });
     },
-    comments(parent,args,ctx,info){
-      return comments.filter(comment=>{
-        return comment.post===parent.id
-      })
+    comments(parent, args, ctx, info) {
+      return comments.filter(comment => {
+        return comment.post === parent.id;
+      });
     }
   },
   User: {
@@ -168,14 +227,14 @@ const resolvers = {
   },
   Comment: {
     author(parent, args, ctx, info) {
-      return users.find(user=>{
-        return user.id===parent.author
-      })
+      return users.find(user => {
+        return user.id === parent.author;
+      });
     },
-    post(parent, args, ctx, info){
-      return posts.find(post=>{
-        return post.id===parent.post
-      })
+    post(parent, args, ctx, info) {
+      return posts.find(post => {
+        return post.id === parent.post;
+      });
     }
   }
 };
